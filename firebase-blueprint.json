@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "merchant": {
+      "title": "MerchantProfile",
+      "description": "Profil et configuration du commerce et des coordonnées marchandes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "businessName": { "type": "string", "maxLength": 128 },
+        "ownerName": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 128 },
+        "currency": { "type": "string", "maxLength": 16 },
+        "plan": { "type": "string", "enum": ["starter", "pro", "reseau"] },
+        "launchDiscountActive": { "type": "boolean" },
+        "kycStatus": { "type": "string", "enum": ["non_requis", "en_cours", "valide"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "businessName", "ownerName", "currency"]
+    },
+    "boutique": {
+      "title": "Boutique",
+      "description": "Point de vente physique appartenant à l'espace commerçant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "address": { "type": "string", "maxLength": 256 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "managerName": { "type": "string", "maxLength": 128 },
+        "color": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "managerName"]
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Fiche compte commune à toutes les boutiques (Client, Fournisseur, Employé, Partenaire)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "type": { "type": "string", "enum": ["client", "fournisseur", "employe", "partenaire"] },
+        "address": { "type": "string", "maxLength": 256 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "type"]
+    },
+    "transaction": {
+      "title": "Transaction",
+      "description": "Opération financière ou de crédit horodatée et attribuée à une boutique et un auteur",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "personId": { "type": "string", "maxLength": 128 },
+        "boutiqueId": { "type": "string", "maxLength": 128 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "maxLength": 128 },
+        "authorRole": { "type": "string", "enum": ["gerant", "employe"] },
+        "type": { "type": "string", "enum": ["vente_credit", "versement", "avance_donnee", "pret_accorde", "remboursement", "vente_comptant"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string", "maxLength": 500 },
+        "timestamp": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["especes", "wave", "orange_money", "mtn_momo", "moov", "virement"] },
+        "receiptNumber": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["active", "cancelled"] }
+      },
+      "required": ["id", "boutiqueId", "authorId", "type", "amount", "status"]
+    },
+    "product": {
+      "title": "Product",
+      "description": "Article de vente et suivi du stock par boutique",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "unit": { "type": "string", "maxLength": 32 },
+        "buyPrice": { "type": "number" },
+        "sellPrice": { "type": "number" },
+        "minThreshold": { "type": "number" }
+      },
+      "required": ["id", "name", "buyPrice", "sellPrice"]
+    }
+  },
+  "firestore": {
+    "/merchants/{merchantId}": {
+      "schema": { "$ref": "#/entities/merchant" },
+      "description": "Documents de profil des commerçants"
+    },
+    "/merchants/{merchantId}/boutiques/{boutiqueId}": {
+      "schema": { "$ref": "#/entities/boutique" },
+      "description": "Boutiques associées au commerçant"
+    },
+    "/merchants/{merchantId}/contacts/{contactId}": {
+      "schema": { "$ref": "#/entities/contact" },
+      "description": "Comptes partagés (clients, fournisseurs, etc.)"
+    },
+    "/merchants/{merchantId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/transaction" },
+      "description": "Historique des opérations du commerçant"
+    },
+    "/merchants/{merchantId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/product" },
+      "description": "Catalogue de produits et stocks"
+    }
+  }
+}

@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Security helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(merchantId) {
+      return isSignedIn() && (request.auth.uid == merchantId || request.auth.token.email == 'jacobyassou8@gmail.com');
+    }
+
+    // Connection ping test document for application initialization check
+    match /_connection_test/{testId} {
+      allow read, write: if true;
+    }
+
+    // Merchant profile
+    match /merchants/{merchantId} {
+      allow read: if isSignedIn() && (request.auth.uid == merchantId || request.auth.token.email == 'jacobyassou8@gmail.com');
+      allow create, update: if isSignedIn() && isValidId(merchantId) && isOwner(merchantId) &&
+        incoming().businessName is string && incoming().businessName.size() <= 128 &&
+        incoming().ownerName is string && incoming().ownerName.size() <= 128;
+      allow delete: if isSignedIn() && isOwner(merchantId);
+
+      // Boutiques subcollection
+      match /boutiques/{boutiqueId} {
+        allow read: if isSignedIn() && isOwner(merchantId);
+        allow create, update: if isSignedIn() && isValidId(boutiqueId) && isOwner(merchantId) &&
+          incoming().name is string && incoming().name.size() <= 128;
+        allow delete: if isSignedIn() && isOwner(merchantId);
+      }
+
+      // Contacts subcollection (shared ledger accounts)
+      match /contacts/{contactId} {
+        allow read: if isSignedIn() && isOwner(merchantId);
+        allow create, update: if isSignedIn() && isValidId(contactId) && isOwner(merchantId) &&
+          incoming().name is string && incoming().name.size() <= 128 &&
+          incoming().phone is string && incoming().phone.size() <= 32;
+        allow delete: if isSignedIn() && isOwner(merchantId);
+      }
+
+      // Transactions subcollection
+      match /transactions/{transactionId} {
+        allow read: if isSignedIn() && isOwner(merchantId);
+        allow create: if isSignedIn() && isValidId(transactionId) && isOwner(merchantId) &&
+          incoming().amount is number && incoming().amount > 0 &&
+          incoming().status in ['active', 'cancelled'];
+        allow update: if isSignedIn() && isValidId(transactionId) && isOwner(merchantId) &&
+          // Only allowing status change (e.g. cancellation) while preserving history
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelReason']) &&
+          incoming().status in ['active', 'cancelled'];
+        allow delete: if false; // Preserving immutable financial records
+      }
+
+      // Products & stock subcollection
+      match /products/{productId} {
+        allow read: if isSignedIn() && isOwner(merchantId);
+        allow create, update: if isSignedIn() && isValidId(productId) && isOwner(merchantId) &&
+          incoming().name is string && incoming().name.size() <= 128;
+        allow delete: if isSignedIn() && isOwner(merchantId);
+      }
+    }
+  }
+}

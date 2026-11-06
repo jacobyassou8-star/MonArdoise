@@ -20,7 +20,14 @@ import {
   initialTransactions 
 } from '../data/mockData';
 import { calculateContactBalance, calculateOverdueInfo, formatCurrency } from '../utils/formatters';
-
+import { 
+  auth, 
+  signInWithGoogle, 
+  signOutUser, 
+  testFirestoreConnection, 
+  onAuthStateChanged, 
+  User 
+} from '../lib/firebase';
 
 interface AppContextType {
   merchant: MerchantProfile;
@@ -79,9 +86,19 @@ interface AppContextType {
   requestBrowserNotificationPermission: () => Promise<boolean>;
   triggerOverdueAlertCheck: (forceToast?: boolean) => void;
   seedDemoOverdueAccount: () => void;
+
+  // Firebase Cloud Integration & Authentication
+  firebaseUser: User | null;
+  isFirebaseConnected: boolean;
+  isFirebaseLoading: boolean;
+  firebaseError: string | null;
+  signInWithGoogleAuth: () => Promise<void>;
+  signOutFirebaseAuth: () => Promise<void>;
+  checkFirebaseConnection: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
+
 
 // Automatically wipe previous demo records from client localStorage on first boot
 if (typeof window !== 'undefined' && !localStorage.getItem('monardoise_wiped_v2')) {
@@ -167,10 +184,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : defaultOverdueSettings;
   });
 
+  // Firebase state
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
+  const [isFirebaseLoading, setIsFirebaseLoading] = useState<boolean>(true);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+
+  // Initialize Firebase connection and auth listener on load
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setIsFirebaseLoading(false);
+    });
+
+    testFirestoreConnection().then((res) => {
+      setIsFirebaseConnected(res.success);
+      if (!res.success) {
+        setFirebaseError(res.message);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Persistence effects
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.OVERDUE_SETTINGS, JSON.stringify(overdueSettings));
   }, [overdueSettings]);
+
 
 
   // Persistence effects
@@ -636,6 +677,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return b ? b.name : 'Boutique active';
   }, [activeBoutiqueId, boutiques]);
 
+  // Firebase Auth & Cloud methods
+  const signInWithGoogleAuth = async () => {
+    try {
+      setIsFirebaseLoading(true);
+      const user = await signInWithGoogle();
+      setFirebaseUser(user);
+      showToast(`Connecté via Google (${user.displayName || user.email})`, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFirebaseError(msg);
+      showToast('Connexion Google Firebase annulée ou échouée', 'error');
+    } finally {
+      setIsFirebaseLoading(false);
+    }
+  };
+
+  const signOutFirebaseAuth = async () => {
+    try {
+      await signOutUser();
+      setFirebaseUser(null);
+      showToast('Déconnexion Firebase effectuée', 'info');
+    } catch (err) {
+      console.error('Firebase signout error:', err);
+    }
+  };
+
+  const checkFirebaseConnection = async () => {
+    setIsFirebaseLoading(true);
+    const res = await testFirestoreConnection();
+    setIsFirebaseConnected(res.success);
+    setIsFirebaseLoading(false);
+    if (res.success) {
+      setFirebaseError(null);
+      showToast('Connexion Firestore opérationnelle (europe-west2)', 'success');
+    } else {
+      setFirebaseError(res.message);
+      showToast(res.message, 'error');
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -676,12 +757,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         requestBrowserNotificationPermission,
         triggerOverdueAlertCheck,
         seedDemoOverdueAccount,
+        firebaseUser,
+        isFirebaseConnected,
+        isFirebaseLoading,
+        firebaseError,
+        signInWithGoogleAuth,
+        signOutFirebaseAuth,
+        checkFirebaseConnection,
       }}
     >
       {children}
     </AppContext.Provider>
   );
 };
+
 
 
 export const useApp = () => {
