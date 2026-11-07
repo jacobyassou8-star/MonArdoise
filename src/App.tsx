@@ -24,7 +24,7 @@ import { ExportDataModal } from './components/ExportDataModal';
 import { ResetDataModal } from './components/ResetDataModal';
 import { FeaturesHubBar } from './components/FeaturesHubBar';
 import { Contact, Transaction } from './types';
-import { 
+import { InscriptionModal } from './components/inscriptionmodal';
   Smartphone, 
   Monitor, 
   Wifi, 
@@ -61,11 +61,12 @@ function AppContent() {
   const [showExport, setShowExport] = useState<boolean>(false);
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
-
+ const [showInscription, setShowInscription] = useState<boolean>(false); 
   // Handlers
   const handleOpenNewTx = (contact?: Contact) => {
     setPrefilledContactForTx(contact || null);
     setShowNewTx(true);
+  
   };
 
   const handleTxSuccess = (txId: string) => {
@@ -82,6 +83,7 @@ function AppContent() {
     if (found) {
       setReceiptTx(found);
     }
+    
   };
 
   return (
@@ -246,6 +248,10 @@ function AppContent() {
             {deviceType === 'iphone' && (
               <div className="h-4 bg-white/95 dark:bg-slate-900/95 flex items-center justify-center shrink-0">
                 <div className="w-32 h-1 bg-slate-300 dark:bg-slate-700 rounded-full" />
+                <InscriptionModal 
+  isOpen={showInscription} 
+  onClose={() => setShowInscription(false)} 
+/>
               </div>
             )}
           </div>
@@ -395,6 +401,8 @@ function AppContent() {
           onOpenAudit={() => {
             setShowMobileMenu(false);
             setCurrentTab('audit');
+          
+ 
           }}
         />
       )}
